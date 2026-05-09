@@ -8,7 +8,7 @@ uses
   // RTL
   System.Types, System.Classes,
   // Android
-  Androidapi.JNI.Embarcadero, Androidapi.JNI.GraphicsContentViewText,
+  Androidapi.JNI.GraphicsContentViewText, Androidapi.JNI.Widget,
   // FMX
   FMX.Controls;
 
@@ -16,7 +16,9 @@ type
   TNativeControl = class(TControl)
   private
     FBounds: TRect;
-    FNativeLayout: JNativeLayout;
+    FNativeLayout: JFrameLayout;
+    FNativeLayoutParams: JFrameLayout_LayoutParams;
+    FRootView: JViewGroup;
     FScale: Single;
     procedure DoHide;
     procedure DoResize;
@@ -45,7 +47,7 @@ uses
   // RTL
   System.SysUtils,
   // Android
-  Androidapi.Helpers, Androidapi.JNI.App,
+  Androidapi.Helpers, Androidapi.JNIBridge, Androidapi.JNI.App,
   // FMX
   FMX.Helpers.Android, FMX.Types, FMX.Forms, FMX.Platform, FMX.Platform.Android;
 
@@ -63,18 +65,18 @@ end;
 destructor TNativeControl.Destroy;
 begin
   if (FNativeControl <> nil) and (FNativeLayout <> nil) then
-    FinaliseLayout;
+    CallInUIThreadAndWaitFinishing(FinaliseLayout);
   inherited;
 end;
 
 procedure TNativeControl.FinaliseLayout;
 begin
-  TUIThreadCaller.Call<JView, JNativeLayout>(
-    procedure (ANativeControl: JView; ANativeLayout: JNativeLayout)
-    begin
-      ANativeControl.setVisibility(TJView.JavaClass.INVISIBLE);
-      ANativeLayout.setControl(nil);
-    end, FNativeControl, FNativeLayout);
+  if FNativeControl <> nil then
+    FNativeControl.setVisibility(TJView.JavaClass.INVISIBLE);
+  if (FNativeLayout <> nil) and (FNativeControl <> nil) then
+    FNativeLayout.removeView(FNativeControl);
+  if (FRootView <> nil) and (FNativeLayout <> nil) then
+    FRootView.removeView(FNativeLayout);
 end;
 
 function TNativeControl.CreateNativeControl: JView;
@@ -94,12 +96,24 @@ begin
 end;
 
 procedure TNativeControl.InitialiseLayout;
+var
+  LRootLayoutParams: JViewGroup_LayoutParams;
 begin
   FNativeControl := CreateNativeControl;
   if FNativeControl <> nil then
   begin
-    FNativeLayout := TJNativeLayout.JavaClass.init(TAndroidHelper.Activity, MainActivity.getWindow.getDecorView.getWindowToken);
-    FNativeLayout.setControl(FNativeControl);
+    FNativeLayout := TJFrameLayout.JavaClass.init(TAndroidHelper.Activity);
+    FRootView := TJViewGroup.Wrap((MainActivity.getWindow.getDecorView as ILocalObject).GetObjectID);
+    if FRootView <> nil then
+    begin
+      LRootLayoutParams := TJViewGroup_LayoutParams.JavaClass.init(
+        TJViewGroup_LayoutParams.JavaClass.MATCH_PARENT,
+        TJViewGroup_LayoutParams.JavaClass.MATCH_PARENT
+      );
+      FRootView.addView(FNativeLayout, LRootLayoutParams);
+      FNativeLayoutParams := TJFrameLayout_LayoutParams.JavaClass.init(1, 1);
+      FNativeLayout.addView(FNativeControl, FNativeLayoutParams);
+    end;
   end;
 end;
 
@@ -119,9 +133,14 @@ end;
 
 procedure TNativeControl.DoResize;
 begin
+  if (FNativeControl = nil) or (FNativeLayoutParams = nil) then
+    Exit;
   UpdateBounds;
-  FNativeLayout.setPosition(FBounds.Left, FBounds.Top);
-  FNativeLayout.setSize(FBounds.Right, FBounds.Bottom);
+  FNativeLayoutParams.width := FBounds.Right;
+  FNativeLayoutParams.height := FBounds.Bottom;
+  FNativeControl.setLayoutParams(FNativeLayoutParams);
+  FNativeControl.setX(FBounds.Left);
+  FNativeControl.setY(FBounds.Top);
 end;
 
 procedure TNativeControl.Resize;
