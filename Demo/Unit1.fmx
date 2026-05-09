@@ -7,6 +7,7 @@ object Form1: TForm1
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
   DesignerMasterStyle = 0
   object ButtonsLayout: TLayout
     Align = Bottom
@@ -47,7 +48,7 @@ object Form1: TForm1
         item
         end>
       IsSelected = True
-      Size.Width = 65.000000000000000000
+      Size.Width = 61.000000000000000000
       Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
       StyleLookup = ''
@@ -61,7 +62,7 @@ object Form1: TForm1
         item
         end>
       IsSelected = False
-      Size.Width = 107.000000000000000000
+      Size.Width = 106.000000000000000000
       Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
       StyleLookup = ''
